@@ -44,7 +44,7 @@ projects_dataset = spark.read \
 projects_dataset.printSchema()
 
 ### REMOVE DUPLICATES
-projects_dataset = projects_dataset.dropDuplicates(["project_id"])
+projects_dataset = projects_dataset.dropDuplicates(["project_id"]).dropDuplicates(["title"]).dropDuplicates(["tagLine"])
 
 #### FILTER ITEMS WITH NULL POSTING KEY
 count_items = projects_dataset.count()
@@ -56,13 +56,13 @@ print(f"Number of items from RAW DATA with NOT NULL KEY {count_items_null}")
 
 
 ## READ TAGS DATASET
-img_dataset_path = "s3://unimib-raw-data-2022/ds_img_details.csv"
+img_dataset_path = "s3://unimib-raw-data-2022/ds_img_details_full.csv"
 img_dataset = spark.read.option("header","true").csv(img_dataset_path)
 
 
 
 # CREATE THE AGGREGATE MODEL, ADD TAGS TO TEDX_DATASET
-img_dataset_agg = img_dataset.groupBy(col("project_id").alias("project_id_ref")).agg(collect_list("name").alias("names"))
+img_dataset_agg = img_dataset.groupBy(col("project_url").alias("project_id_ref")).agg(collect_list("name").alias("names"))
 img_dataset_agg.printSchema()
 projects_dataset_agg = projects_dataset.join(img_dataset_agg, projects_dataset.project_id == img_dataset_agg.project_id_ref, "left") \
     .drop("project_id_ref")
@@ -70,3 +70,6 @@ projects_dataset_agg = projects_dataset.join(img_dataset_agg, projects_dataset.p
 projects_dataset_agg.printSchema()
 
 projects_dataset_agg.write.option("compression", "snappy").mode("overwrite").parquet("s3://unimib-dwh-2022/projects_dataset.out")
+
+
+
